@@ -122,8 +122,10 @@ export class TestCommands {
         runSeq();
     }
 
-    private runBuildCommandForSpecificDirectory(testDirectoryPath: string): Promise<void>  {
+    private runBuildCommandForSpecificDirectory(testDirectoryPath: string): Promise<any>  {
         return new Promise((resolve, reject) => {
+
+            Logger.Log(`Executing dotnet build in ${testDirectoryPath}`);
 
             Executor.exec("dotnet build", (err, stdout: string) => {
                 if (err) {
@@ -146,22 +148,23 @@ export class TestCommands {
 
             if (testName && testName.length) {
                 if (isSingleTest) {
-                    command = command + ` --filter FullyQualifiedName=${testName.replace(/\(.*\)/g, "")}`;
+                    command = command + ` --filter "FullyQualifiedName=${testName.replace(/\(.*\)/g, "")}"`;
                 } else {
-                    command = command + ` --filter FullyQualifiedName~${testName.replace(/\(.*\)/g, "")}`;
+                    command = command + ` --filter "FullyQualifiedName~${testName.replace(/\(.*\)/g, "")}"`;
                 }
             }
 
             this.lastRunTestContext = textContext;
-            Logger.Log(`Executing ${command} in ${testDirectoryPath}`);
+
             this.onTestRunEmitter.fire(textContext);
 
             this.runBuildCommandForSpecificDirectory(testDirectoryPath)
-                .then( () =>
+                .then( () => {
+                    Logger.Log(`Executing ${command} in ${testDirectoryPath}`);
 
-                    Executor.exec(command, (err, stdout: string) => {
+                    return Executor.exec(command, (err, stdout: string) => {
 
-                        if (err.killed) {
+                        if (err && err.killed) {
                             Logger.Log("User has probably cancelled test run");
                             reject(new Error("UserAborted"));
                         }
@@ -171,8 +174,8 @@ export class TestCommands {
                         this.resultsFile.parseResults(testResultFile).then( (result) => {
                             resolve(result);
                         });
-                    }, testDirectoryPath, true),
-                )
+                    }, testDirectoryPath, true);
+                })
                 .catch( (err) => {
                     reject(err);
                 });
